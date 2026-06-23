@@ -305,6 +305,7 @@ impl SettlementContract {
 }
 
 fn read_admin(env: &Env) -> Address {
+    env.storage().instance().extend_ttl(50_000, 100_000);
     env.storage()
         .instance()
         .get(&DataKey::Admin)
@@ -312,9 +313,13 @@ fn read_admin(env: &Env) -> Address {
 }
 
 fn is_merchant_registered_internal(env: &Env, merchant: Address) -> bool {
+    let key = DataKey::Merchant(merchant);
+    if env.storage().persistent().has(&key) {
+        env.storage().persistent().extend_ttl(&key, 50_000, 100_000);
+    }
     env.storage()
         .persistent()
-        .get(&DataKey::Merchant(merchant))
+        .get(&key)
         .unwrap_or(false)
 }
 

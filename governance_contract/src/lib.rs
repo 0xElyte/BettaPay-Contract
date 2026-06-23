@@ -128,7 +128,11 @@ impl GovernanceContract {
     }
 
     pub fn get_system_param(env: Env, key: Symbol) -> Option<i128> {
-        env.storage().persistent().get(&DataKey::SystemParam(key))
+        let storage_key = DataKey::SystemParam(key);
+        if env.storage().persistent().has(&storage_key) {
+            env.storage().persistent().extend_ttl(&storage_key, 50_000, 100_000);
+        }
+        env.storage().persistent().get(&storage_key)
     }
 
     pub fn set_fee_config(env: Env, config: FeeConfig) {
@@ -176,7 +180,10 @@ impl GovernanceContract {
         }
 
         env.storage().persistent().remove(&key);
-        env.events().publish((symbol_short!("anchor_rm"), asset), true);
+        env.events().publish(
+            (Symbol::new(&env, "anchor_removed"), asset),
+            true,
+        );
     }
 
     pub fn get_anchor(env: Env, asset: Address) -> Option<Address> {
