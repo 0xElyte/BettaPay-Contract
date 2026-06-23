@@ -76,18 +76,21 @@ impl GovernanceContract {
     ///
     /// ### Panics
     /// - If the caller is not the stored admin.
-    pub fn upgrade(env: Env, new_wasm_hash: BytesN<32>) {
+    pub fn upgrade(env: Env, caller: Address, new_wasm_hash: BytesN<32>) {
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         env.deployer()
             .update_current_contract_wasm(new_wasm_hash.clone());
         env.events().publish(
             (Symbol::new(&env, "contract_upgraded"), new_wasm_hash),
-            admin,
+            caller,
         );
     }
 
-    pub fn transfer_admin(env: Env, new_admin: Address) {
+    pub fn transfer_admin(env: Env, caller: Address, new_admin: Address) {
         let admin = read_admin(&env);
         admin.require_auth();
         
@@ -99,16 +102,22 @@ impl GovernanceContract {
         env.events().publish((symbol_short!("admin"),), new_admin);
     }
 
-    pub fn pause(env: Env) {
+    pub fn pause(env: Env, caller: Address) {
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         env.storage().instance().set(&DataKey::Paused, &true);
         env.events().publish((symbol_short!("pause"),), (admin, true));
     }
 
-    pub fn unpause(env: Env) {
+    pub fn unpause(env: Env, caller: Address) {
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         env.storage().instance().set(&DataKey::Paused, &false);
         env.events().publish((symbol_short!("unpause"),), false);
     }
@@ -117,13 +126,16 @@ impl GovernanceContract {
         is_paused(&env)
     }
 
-    pub fn update_system_param(env: Env, key: Symbol, value: i128) {
+    pub fn update_system_param(env: Env, caller: Address, key: Symbol, value: i128) {
         assert_not_paused(&env);
         if key.to_string(&env).len() > 32 {
             panic_with_error!(&env, GovernanceError::InvalidSystemParamKey);
         }
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         env.storage()
             .persistent()
             .set(&DataKey::SystemParam(key.clone()), &value);
@@ -139,10 +151,13 @@ impl GovernanceContract {
         env.storage().persistent().get(&storage_key)
     }
 
-    pub fn set_fee_config(env: Env, config: FeeConfig) {
+    pub fn set_fee_config(env: Env, caller: Address, config: FeeConfig) {
         assert_not_paused(&env);
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
 
         if config.platform_fee_bps < MIN_FEE_BPS
             || config.platform_fee_bps > MAX_FEE_BPS
@@ -165,10 +180,13 @@ impl GovernanceContract {
         env.storage().persistent().get(&DataKey::FeeConfig)
     }
 
-    pub fn upsert_anchor(env: Env, asset: Address, anchor: Address) {
+    pub fn upsert_anchor(env: Env, caller: Address, asset: Address, anchor: Address) {
         assert_not_paused(&env);
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         env.storage()
             .persistent()
             .set(&DataKey::Anchor(asset.clone()), &anchor.clone());
@@ -176,10 +194,13 @@ impl GovernanceContract {
             .publish((symbol_short!("anchor_up"), asset), anchor);
     }
 
-    pub fn remove_anchor(env: Env, asset: Address) {
+    pub fn remove_anchor(env: Env, caller: Address, asset: Address) {
         assert_not_paused(&env);
         let admin = read_admin(&env);
-        admin.require_auth();
+        if caller != admin {
+            panic_with_error!(&env, GovernanceError::Unauthorized);
+        }
+        caller.require_auth();
         let key = DataKey::Anchor(asset.clone());
 
         if !env.storage().persistent().has(&key) {
@@ -268,23 +289,23 @@ mod tests {
 
     #[test]
     fn updates_system_parameters() {
-        let (env, client, _admin) = setup();
+        let (env, client, admin) = setup();
         let key = Symbol::new(&env, "max_settle");
         let before = env.events().all().len();
-        client.update_system_param(&key, &1440);
+        client.update_system_param(&admin, &key, &1440);
         assert_eq!(client.get_system_param(&key), Some(1440));
         assert!(env.events().all().len() > before);
     }
 
     #[test]
     fn sets_fee_config() {
-        let (env, client, _admin) = setup();
+        let (env, client, admin) = setup();
         let cfg = FeeConfig {
             platform_fee_bps: 120,
             network_fee_bps: 35,
         };
         let before = env.events().all().len();
-        client.set_fee_config(&cfg);
+        client.set_fee_config(&admin, &cfg);
         let got = client.get_fee_config().expect("expected config");
         assert_eq!(got.platform_fee_bps, 120);
         assert_eq!(got.network_fee_bps, 35);
@@ -293,17 +314,17 @@ mod tests {
 
     #[test]
     fn upserts_and_removes_anchor() {
-        let (env, client, _admin) = setup();
+        let (env, client, admin) = setup();
         let asset = Address::generate(&env);
         let anchor = Address::generate(&env);
 
         let before_upsert = env.events().all().len();
-        client.upsert_anchor(&asset, &anchor);
+        client.upsert_anchor(&admin, &asset, &anchor);
         assert_eq!(client.get_anchor(&asset), Some(anchor.clone()));
         assert!(env.events().all().len() > before_upsert);
 
         let before_remove = env.events().all().len();
-        client.remove_anchor(&asset);
+        client.remove_anchor(&admin, &asset);
         assert_eq!(client.get_anchor(&asset), None);
         assert!(env.events().all().len() > before_remove);
     }
@@ -311,35 +332,35 @@ mod tests {
     #[test]
     #[should_panic]
     fn rejects_fee_bps_above_max() {
-        let (_env, client, _admin) = setup();
+        let (_env, client, admin) = setup();
         let cfg = FeeConfig {
             platform_fee_bps: 5_001,
             network_fee_bps: 100,
         };
-        client.set_fee_config(&cfg);
+        client.set_fee_config(&admin, &cfg);
     }
 
     #[test]
     #[should_panic]
     fn rejects_fee_bps_below_min() {
-        let (_env, client, _admin) = setup();
+        let (_env, client, admin) = setup();
         let cfg = FeeConfig {
             platform_fee_bps: 100,
             network_fee_bps: 4, // below MIN_FEE_BPS
         };
-        client.set_fee_config(&cfg);
+        client.set_fee_config(&admin, &cfg);
     }
 
     #[test]
     fn accepts_fee_bps_at_boundaries() {
-        let (_env, client, _admin) = setup();
+        let (_env, client, admin) = setup();
         // Exactly at minimum
-        client.set_fee_config(&FeeConfig {
+        client.set_fee_config(&admin, &FeeConfig {
             platform_fee_bps: 5,
             network_fee_bps: 5,
         });
         // Exactly at maximum
-        client.set_fee_config(&FeeConfig {
+        client.set_fee_config(&admin, &FeeConfig {
             platform_fee_bps: 5_000,
             network_fee_bps: 5_000,
         });
@@ -348,9 +369,9 @@ mod tests {
     #[test]
     #[should_panic]
     fn rejects_removing_unknown_anchor() {
-        let (env, client, _admin) = setup();
+        let (env, client, admin) = setup();
         let missing_asset = Address::generate(&env);
-        client.remove_anchor(&missing_asset);
+        client.remove_anchor(&admin, &missing_asset);
     }
 
     #[test]
