@@ -72,6 +72,7 @@ pub enum SettlementError {
     DuplicatePaymentReference = 8,
     Paused = 9,
     RuleNotSet = 10,
+    InvalidAddress = 11,
 }
 
 #[contract]
@@ -118,6 +119,12 @@ impl SettlementContract {
 
     pub fn register_merchant(env: Env, merchant: Address) {
         assert_not_paused(&env);
+
+        let zero_address_str = soroban_sdk::String::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF");
+        if merchant.to_string().len() == 0 || merchant.to_string() == zero_address_str {
+            panic_with_error!(&env, SettlementError::InvalidAddress);
+        }
+
         let admin = read_admin(&env);
         admin.require_auth();
 
@@ -371,6 +378,14 @@ mod tests {
         client.register_merchant(&merchant);
         assert!(client.is_merchant_registered(&merchant));
         assert!(env.events().all().len() > before);
+    }
+
+    #[test]
+    #[should_panic]
+    fn rejects_invalid_merchant_address() {
+        let (env, client, _admin, _merchant) = setup();
+        let zero_address = Address::from_string(&soroban_sdk::String::from_str(&env, "GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF"));
+        client.register_merchant(&zero_address);
     }
 
     #[test]
