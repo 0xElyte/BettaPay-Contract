@@ -1,8 +1,8 @@
 #![no_std]
 
 use soroban_sdk::{
-    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address, BytesN, Env,
-    Symbol,
+    contract, contracterror, contractimpl, contracttype, panic_with_error, symbol_short, Address,
+    BytesN, Env, Symbol,
 };
 
 /// Minimum allowed fee in basis points (0.05%).
@@ -37,6 +37,7 @@ pub enum GovernanceError {
     InvalidFeeBps = 4,
     AnchorMissing = 5,
     Paused = 6,
+    InvalidAdmin = 7,
 }
 
 #[contract]
@@ -88,6 +89,11 @@ impl GovernanceContract {
     pub fn transfer_admin(env: Env, new_admin: Address) {
         let admin = read_admin(&env);
         admin.require_auth();
+        
+        if admin == new_admin {
+            panic_with_error!(&env, GovernanceError::InvalidAdmin);
+        }
+        
         env.storage().instance().set(&DataKey::Admin, &new_admin);
         env.events().publish((symbol_short!("admin"),), new_admin);
     }
@@ -122,7 +128,11 @@ impl GovernanceContract {
     }
 
     pub fn get_system_param(env: Env, key: Symbol) -> Option<i128> {
-        env.storage().persistent().get(&DataKey::SystemParam(key))
+        let storage_key = DataKey::SystemParam(key);
+        if env.storage().persistent().has(&storage_key) {
+            env.storage().persistent().extend_ttl(&storage_key, 50_000, 100_000);
+        }
+        env.storage().persistent().get(&storage_key)
     }
 
     pub fn set_fee_config(env: Env, config: FeeConfig) {
@@ -138,7 +148,9 @@ impl GovernanceContract {
             panic_with_error!(&env, GovernanceError::InvalidFeeBps);
         }
 
-        env.storage().persistent().set(&DataKey::FeeConfig, &config.clone());
+        env.storage()
+            .persistent()
+            .set(&DataKey::FeeConfig, &config.clone());
         env.events().publish(
             (symbol_short!("fee_cfg"),),
             (config.platform_fee_bps, config.network_fee_bps),
@@ -156,7 +168,8 @@ impl GovernanceContract {
         env.storage()
             .persistent()
             .set(&DataKey::Anchor(asset.clone()), &anchor.clone());
-        env.events().publish((symbol_short!("anchor_up"), asset), anchor);
+        env.events()
+            .publish((symbol_short!("anchor_up"), asset), anchor);
     }
 
     pub fn remove_anchor(env: Env, asset: Address) {
@@ -170,7 +183,12 @@ impl GovernanceContract {
         }
 
         env.storage().persistent().remove(&key);
-        env.events().publish((symbol_short!("anchor_rm"), asset), true);
+        env.events()
+            .publish((symbol_short!("anchor_rm"), asset), true);
+        env.events().publish(
+            (Symbol::new(&env, "anchor_removed"), asset),
+            true,
+        );
     }
 
     pub fn get_anchor(env: Env, asset: Address) -> Option<Address> {
@@ -186,7 +204,10 @@ fn read_admin(env: &Env) -> Address {
 }
 
 fn is_paused(env: &Env) -> bool {
-    env.storage().instance().get(&DataKey::Paused).unwrap_or(false)
+    env.storage()
+        .instance()
+        .get(&DataKey::Paused)
+        .unwrap_or(false)
 }
 
 fn assert_not_paused(env: &Env) {
@@ -402,5 +423,17 @@ mod tests {
         let (env, client, admin) = setup();
         client.pause();
         assert!(client.is_paused());
+    #[should_panic(expected = "Error(Contract, #7)")]
+    fn rejects_same_admin_transfer() {
+        let (_env, client, admin) = setup();
+        client.transfer_admin(&admin);
+    }
+
+    #[test]
+    fn transfers_admin_successfully() {
+        let (env, client, _admin) = setup();
+        let new_admin = Address::generate(&env);
+        client.transfer_admin(&new_admin);
+        assert_eq!(client.get_admin(), new_admin);
     }
 }
