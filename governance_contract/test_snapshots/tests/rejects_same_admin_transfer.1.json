@@ -199,7 +199,7 @@
                 "bytes": "0000000000000000000000000000000000000000000000000000000000000002"
               },
               {
-                "symbol": "set_fee_config"
+                "symbol": "transfer_admin"
               }
             ],
             "data": {
@@ -208,24 +208,7 @@
                   "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                 },
                 {
-                  "map": [
-                    {
-                      "key": {
-                        "symbol": "network_fee_bps"
-                      },
-                      "val": {
-                        "u32": 4
-                      }
-                    },
-                    {
-                      "key": {
-                        "symbol": "platform_fee_bps"
-                      },
-                      "val": {
-                        "u32": 100
-                      }
-                    }
-                  ]
+                  "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                 }
               ]
             }
@@ -247,7 +230,7 @@
               },
               {
                 "error": {
-                  "contract": 4
+                  "contract": 7
                 }
               }
             ],
@@ -257,7 +240,7 @@
                   "string": "failing with contract error"
                 },
                 {
-                  "u32": 4
+                  "u32": 7
                 }
               ]
             }
@@ -279,7 +262,7 @@
               },
               {
                 "error": {
-                  "contract": 4
+                  "contract": 7
                 }
               }
             ],
@@ -304,7 +287,7 @@
               },
               {
                 "error": {
-                  "contract": 4
+                  "contract": 7
                 }
               }
             ],
@@ -329,7 +312,7 @@
               },
               {
                 "error": {
-                  "contract": 4
+                  "contract": 7
                 }
               }
             ],
@@ -339,7 +322,7 @@
                   "string": "contract call failed"
                 },
                 {
-                  "symbol": "set_fee_config"
+                  "symbol": "transfer_admin"
                 },
                 {
                   "vec": [
@@ -347,24 +330,7 @@
                       "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                     },
                     {
-                      "map": [
-                        {
-                          "key": {
-                            "symbol": "network_fee_bps"
-                          },
-                          "val": {
-                            "u32": 4
-                          }
-                        },
-                        {
-                          "key": {
-                            "symbol": "platform_fee_bps"
-                          },
-                          "val": {
-                            "u32": 100
-                          }
-                        }
-                      ]
+                      "address": "CAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD2KM"
                     }
                   ]
                 }
@@ -388,7 +354,7 @@
               },
               {
                 "error": {
-                  "contract": 4
+                  "contract": 7
                 }
               }
             ],
