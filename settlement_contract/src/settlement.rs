@@ -22,6 +22,12 @@ use crate::{
 /// sum no more than `BPS_DENOMINATOR` (overflow-checked), and the settlement
 /// delay no more than `MAX_SETTLEMENT_DELAY_LEDGER`. Checks run in the same
 /// order the setters used inline, so the first error reported is unchanged.
+///
+/// `MIN_FEE_BPS` and `MAX_FEE_BPS` come from `bettapay_common::constants`, the
+/// same single source the governance contract's `set_fee_config` uses for
+/// `FeeConfig`. Neither contract keeps its own copy, so the per-leg bounds
+/// cannot drift apart; `fee_bounds_parity_tests` pins this at each boundary
+/// (issue #987).
 fn validate_rule_bounds(env: &Env, rule: &SettlementRule) {
     if rule.platform_fee_bps > BPS_DENOMINATOR || rule.network_fee_bps > BPS_DENOMINATOR {
         panic_with_error!(env, SettlementError::InvalidFeeBps);

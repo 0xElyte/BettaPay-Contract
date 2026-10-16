@@ -7,6 +7,7 @@
 pub mod admin_tests;
 pub mod conformity_tests;
 pub mod event_topic_conformity_tests;
+pub mod fee_bounds_parity_tests;
 pub mod fee_config_ordering_tests;
 pub mod governance_error_tests;
 pub mod integration_tests;
