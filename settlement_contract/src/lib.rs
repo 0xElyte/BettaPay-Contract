@@ -338,6 +338,44 @@ pub(crate) const SUPPORTED_INTERFACE_VERSION: u32 = 1;
 /// governance_contract's `CURRENT_SCHEMA_VERSION` (issue #507, issue #704).
 pub(crate) const CURRENT_SCHEMA_VERSION: u32 = 1;
 
+/// The stable set of capability flag names reported by `get_capabilities`
+/// (issue #986).
+///
+/// Each name maps one-to-one to a feature this build actually implements:
+///
+/// | Flag                     | Backing feature |
+/// |--------------------------|-----------------|
+/// | `timelock`               | `schedule` / `execute` / `cancel` |
+/// | `multisig_admin`         | threshold admin set (`change_threshold`, `transfer_admin`) |
+/// | `admin_recovery`         | `initiate_recovery` / `execute_recovery` / `cancel_recovery` |
+/// | `pause`                  | `pause` / `unpause` / `is_paused` |
+/// | `wasm_upgrade`           | `upgrade`, guarded by the `supports_interface` probe |
+/// | `schema_migration`       | `migrate` |
+/// | `merchant_rules`         | per-merchant `set_settlement_rule` / `clear_settlement_rule` |
+/// | `default_rule`           | global `set_default_rule` / `get_default_rule` |
+/// | `governance_fee_ceiling` | fee rules validated against governance's `FeeConfig` |
+/// | `fee_split_preview`      | `calculate_fee_split` |
+/// | `batch_payment_read`     | `get_payments` |
+/// | `payment_pruning`        | `prune_payment` |
+///
+/// The set is fixed at compile time: flags are never toggled at runtime, and
+/// every listed flag is reported as `true`. Adding or removing a flag is a
+/// deliberate API change and must update the capability test.
+pub(crate) const CAPABILITY_FLAGS: [&str; 12] = [
+    "timelock",
+    "multisig_admin",
+    "admin_recovery",
+    "pause",
+    "wasm_upgrade",
+    "schema_migration",
+    "merchant_rules",
+    "default_rule",
+    "governance_fee_ceiling",
+    "fee_split_preview",
+    "batch_payment_read",
+    "payment_pruning",
+];
+
 /// 50k/100k per ADR-003: inactive instance entries evictable in days, not weeks.
 ///
 /// Settlement-specific TTL policy for short-lived reads of admin / governance /

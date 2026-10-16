@@ -116,6 +116,43 @@ fn version_returns_current_schema_version() {
 }
 
 // ---------------------------------------------------------------------------
+// get_capabilities — issue #986
+// ---------------------------------------------------------------------------
+
+/// The capability flag set is pinned: callable by anyone, exactly these
+/// names, all `true`. Adding or removing a flag must update this list.
+#[test]
+fn get_capabilities_returns_current_flag_set() {
+    let (env, client, _admins, _merchant) = setup();
+
+    env.set_auths(&[]);
+    let flags = client.get_capabilities();
+
+    let expected = [
+        "admin_recovery",
+        "batch_payment_read",
+        "default_rule",
+        "fee_split_preview",
+        "governance_fee_ceiling",
+        "merchant_rules",
+        "multisig_admin",
+        "pause",
+        "payment_pruning",
+        "schema_migration",
+        "timelock",
+        "wasm_upgrade",
+    ];
+    assert_eq!(flags.len(), expected.len() as u32, "unexpected flag count");
+    for name in expected {
+        assert_eq!(
+            flags.get(soroban_sdk::Symbol::new(&env, name)),
+            Some(true),
+            "capability flag `{name}` must be present and true",
+        );
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Pause matrix: upgrade exempt, payment blocked (issue: Add pause-allows-upgrade
 // test; Add pause-blocks-payment test)
 // ---------------------------------------------------------------------------

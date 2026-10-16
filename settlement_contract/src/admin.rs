@@ -1,5 +1,5 @@
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{contractimpl, panic_with_error, Address, BytesN, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, panic_with_error, Address, BytesN, Env, Map, Symbol, Vec};
 
 use bettapay_common::upgrade::probe_supports_interface;
 use bettapay_common::{
@@ -50,6 +50,26 @@ impl SettlementContract {
     /// not been run yet.
     pub fn version(_env: Env) -> u32 {
         CURRENT_SCHEMA_VERSION
+    }
+
+    /// Returns the named capability flags of this build (issue #986).
+    ///
+    /// Each key is a feature this build implements (see `CAPABILITY_FLAGS`
+    /// for the stable, documented set) and each value is `true`. Clients can
+    /// call this once to adapt at runtime instead of probing for optional
+    /// features by trial and error.
+    ///
+    /// Read-only, callable by anyone and TTL-neutral: the map is built from a
+    /// compile-time list, touches no storage and extends no TTL. Flags are
+    /// per-build, not per-merchant, and cannot be enabled or disabled at
+    /// runtime. This is a feature listing only; interface compatibility is
+    /// still negotiated through `supports_interface`.
+    pub fn get_capabilities(env: Env) -> Map<Symbol, bool> {
+        let mut flags = Map::new(&env);
+        for name in crate::CAPABILITY_FLAGS {
+            flags.set(Symbol::new(&env, name), true);
+        }
+        flags
     }
 
     /// Initialize the contract with the given admin address.
