@@ -98,6 +98,24 @@ fn supports_interface_returns_false_for_large_sentinel() {
 }
 
 // ---------------------------------------------------------------------------
+// version getter — issue #985
+// ---------------------------------------------------------------------------
+
+/// `version` returns `CURRENT_SCHEMA_VERSION` and is callable by anyone,
+/// including with no authorization at all.
+#[test]
+fn version_returns_current_schema_version() {
+    let (env, client, _admins, _merchant) = setup();
+
+    env.set_auths(&[]);
+    assert_eq!(
+        client.version(),
+        CURRENT_SCHEMA_VERSION,
+        "version must return CURRENT_SCHEMA_VERSION",
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Pause matrix: upgrade exempt, payment blocked (issue: Add pause-allows-upgrade
 // test; Add pause-blocks-payment test)
 // ---------------------------------------------------------------------------

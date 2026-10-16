@@ -30,6 +30,28 @@ impl SettlementContract {
         version == crate::SUPPORTED_INTERFACE_VERSION
     }
 
+    /// Returns the schema version of the deployed build (`CURRENT_SCHEMA_VERSION`).
+    ///
+    /// Read-only, callable by anyone, and TTL-neutral: it returns a compile-time
+    /// constant, touches no storage and extends no TTL. Operators and monitors
+    /// can use it after an upgrade to confirm which build is live.
+    ///
+    /// # Relation to `supports_interface`
+    ///
+    /// The two answer different questions and neither replaces the other:
+    ///
+    /// * `version()` reports the *schema* version this build was compiled with,
+    ///   so callers can read it directly without guessing.
+    /// * `supports_interface(v)` is the *interface* compatibility probe that
+    ///   `upgrade` runs against an incoming Wasm before committing the swap.
+    ///
+    /// The returned value is the build's constant, not the value persisted in
+    /// instance storage; a stored value lagging behind it means `migrate` has
+    /// not been run yet.
+    pub fn version(_env: Env) -> u32 {
+        CURRENT_SCHEMA_VERSION
+    }
+
     /// Initialize the contract with the given admin address.
     ///
     /// # Auth matrix
