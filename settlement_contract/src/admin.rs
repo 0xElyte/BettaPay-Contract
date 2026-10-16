@@ -1,5 +1,5 @@
 use soroban_sdk::xdr::ToXdr;
-use soroban_sdk::{contractimpl, panic_with_error, Address, BytesN, Env, Symbol, Vec};
+use soroban_sdk::{contractimpl, panic_with_error, Address, BytesN, Env, Map, Symbol, Vec};
 
 use bettapay_common::upgrade::probe_supports_interface;
 use bettapay_common::{
@@ -28,6 +28,48 @@ use crate::{
 impl SettlementContract {
     pub fn supports_interface(_env: Env, version: u32) -> bool {
         version == crate::SUPPORTED_INTERFACE_VERSION
+    }
+
+    /// Returns the schema version of the deployed build (`CURRENT_SCHEMA_VERSION`).
+    ///
+    /// Read-only, callable by anyone, and TTL-neutral: it returns a compile-time
+    /// constant, touches no storage and extends no TTL. Operators and monitors
+    /// can use it after an upgrade to confirm which build is live.
+    ///
+    /// # Relation to `supports_interface`
+    ///
+    /// The two answer different questions and neither replaces the other:
+    ///
+    /// * `version()` reports the *schema* version this build was compiled with,
+    ///   so callers can read it directly without guessing.
+    /// * `supports_interface(v)` is the *interface* compatibility probe that
+    ///   `upgrade` runs against an incoming Wasm before committing the swap.
+    ///
+    /// The returned value is the build's constant, not the value persisted in
+    /// instance storage; a stored value lagging behind it means `migrate` has
+    /// not been run yet.
+    pub fn version(_env: Env) -> u32 {
+        CURRENT_SCHEMA_VERSION
+    }
+
+    /// Returns the named capability flags of this build (issue #986).
+    ///
+    /// Each key is a feature this build implements (see `CAPABILITY_FLAGS`
+    /// for the stable, documented set) and each value is `true`. Clients can
+    /// call this once to adapt at runtime instead of probing for optional
+    /// features by trial and error.
+    ///
+    /// Read-only, callable by anyone and TTL-neutral: the map is built from a
+    /// compile-time list, touches no storage and extends no TTL. Flags are
+    /// per-build, not per-merchant, and cannot be enabled or disabled at
+    /// runtime. This is a feature listing only; interface compatibility is
+    /// still negotiated through `supports_interface`.
+    pub fn get_capabilities(env: Env) -> Map<Symbol, bool> {
+        let mut flags = Map::new(&env);
+        for name in crate::CAPABILITY_FLAGS {
+            flags.set(Symbol::new(&env, name), true);
+        }
+        flags
     }
 
     /// Initialize the contract with the given admin address.

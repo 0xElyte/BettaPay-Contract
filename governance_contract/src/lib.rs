@@ -75,6 +75,14 @@
 //! - `MIN_FEE_BPS` (5 bps, 0.05 %) ≤ value ≤ `MAX_FEE_BPS` (5 000 bps, 50 %)
 //! - `platform_fee_bps + network_fee_bps` ≤ 10 000 bps (100 %)
 //!
+//! **Shared bounds (issue #987):** `MIN_FEE_BPS` and `MAX_FEE_BPS` are
+//! imported from `bettapay_common::constants` and are the single source for
+//! both this contract's `FeeConfig` and the settlement contract's
+//! `SettlementRule`. Neither contract declares its own copy, so governance
+//! cannot accept a config that settlement would reject on the per-leg bounds.
+//! The settlement contract's `fee_bounds_parity_tests` pin this at each
+//! boundary value.
+//!
 //! Violating any constraint panics with [`GovernanceError::InvalidFeeBps`].
 //! The current config is readable via [`GovernanceContract::get_fee_config`].
 //! The entry emits a `fee_config_updated` event on every successful write.
@@ -729,6 +737,11 @@ impl GovernanceContract {
     /// **Fee Ceiling Policy**: Governance is the trust root for cross-contract fee ceilings.
     /// While individual fees are bounded by `MAX_FEE_BPS` and their sum by `BPS_DENOMINATOR`,
     /// Governance is fully trusted to set safe rates within those technical boundaries.
+    ///
+    /// **Shared bounds (issue #987)**: `MIN_FEE_BPS` / `MAX_FEE_BPS` come from
+    /// `bettapay_common::constants`, the same source the settlement contract
+    /// uses for `set_settlement_rule` and `set_default_rule`, so both reject
+    /// `MIN_FEE_BPS - 1` and `MAX_FEE_BPS + 1` and accept the bounds themselves.
     ///
     pub fn set_fee_config(env: Env, signers: Vec<Address>, config: FeeConfig) {
         assert_not_paused(&env);

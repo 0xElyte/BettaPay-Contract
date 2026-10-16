@@ -8,6 +8,7 @@
 
 use crate::types::{DataKey, ScheduledOp};
 use crate::{Operation, DEFAULT_TIMELOCK_DELAY_SECONDS};
+use soroban_sdk::testutils::Address as _;
 use soroban_sdk::xdr::ToXdr;
 use soroban_sdk::{Address, BytesN, Env};
 
@@ -175,4 +176,71 @@ fn schedule_duplicate_operation_raises_operation_already_scheduled() {
 
     // Scheduling the identical operation a second time must panic with #12.
     client.schedule(&admins, &operation, &DEFAULT_TIMELOCK_DELAY_SECONDS);
+}
+
+// ---------------------------------------------------------------------------
+// Issue #996: duplicate vs hash-collision canonical hash test
+// ---------------------------------------------------------------------------
+
+/// Locks in the distinction between a true duplicate and a hash collision,
+/// asserting the exact error variant for each branch in one place.
+///
+/// * A true duplicate (same hash, byte-identical stored XDR) must return
+///   `OperationAlreadyScheduled`.
+/// * A different payload occupying the same hash slot must return
+///   `OperationHashCollision`.
+///
+/// The distinction rests solely on the byte-for-byte comparison of the stored
+/// `ScheduledOp::operation_xdr`. A refactor that collapses the branches, or
+/// drops the comparison, makes one of these assertions fail. Neither failed
+/// schedule may disturb what is already stored.
+#[test]
+fn duplicate_and_hash_collision_are_distinct_errors() {
+    use crate::errors::SettlementError;
+
+    let (env, client, admins, merchant) = setup();
+
+    // Branch 1: true duplicate. Schedule once, then re-schedule the identical
+    // operation.
+    let duplicate_op = Operation::RegisterMerchant(merchant);
+    client.schedule(&admins, &duplicate_op, &DEFAULT_TIMELOCK_DELAY_SECONDS);
+
+    let duplicate = client.try_schedule(&admins, &duplicate_op, &DEFAULT_TIMELOCK_DELAY_SECONDS);
+    assert!(
+        matches!(duplicate, Err(Ok(SettlementError::OperationAlreadyScheduled))),
+        "identical re-schedule must return OperationAlreadyScheduled",
+    );
+
+    // Branch 2: collision. Plant a different payload in the slot another
+    // operation hashes to, then schedule that operation.
+    let colliding_op = Operation::UnregisterMerchant(Address::generate(&env));
+    let foreign_xdr = soroban_sdk::Bytes::from_slice(&env, b"different payload, same hash slot");
+    let colliding_hash = plant_colliding_slot(
+        &env,
+        &client.address,
+        &colliding_op,
+        foreign_xdr.clone(),
+        env.ledger().timestamp() + DEFAULT_TIMELOCK_DELAY_SECONDS,
+    );
+
+    let collision = client.try_schedule(&admins, &colliding_op, &DEFAULT_TIMELOCK_DELAY_SECONDS);
+    assert!(
+        matches!(collision, Err(Ok(SettlementError::OperationHashCollision))),
+        "same-hash different-payload schedule must return OperationHashCollision",
+    );
+
+    // The two outcomes must be different errors.
+    assert_ne!(
+        SettlementError::OperationAlreadyScheduled as u32,
+        SettlementError::OperationHashCollision as u32,
+    );
+
+    // The foreign entry survives the rejected schedule untouched.
+    let stored: ScheduledOp = env.as_contract(&client.address, || {
+        env.storage()
+            .persistent()
+            .get(&DataKey::ScheduledOperation(colliding_hash))
+            .expect("colliding slot must still be occupied")
+    });
+    assert_eq!(stored.operation_xdr, foreign_xdr);
 }
