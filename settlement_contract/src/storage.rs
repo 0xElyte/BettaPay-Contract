@@ -205,12 +205,15 @@ pub(crate) fn is_merchant_registered_read(env: &Env, merchant: Address) -> bool 
 /// merchant marker and no tombstone. Re-registration clears the tombstone
 /// (issue #685), so a re-registered merchant's records become readable again.
 pub(crate) fn assert_payments_readable(env: &Env, merchant: &Address) {
-    let registered = is_merchant_registered_internal(env, merchant.clone());
+    if !is_merchant_registered_internal(env, merchant.clone()) {
+        panic_with_error!(env, SettlementError::PaymentOrphaned);
+    }
+
     let archived = env
         .storage()
         .persistent()
         .has(&DataKey::ArchivedMerchant(merchant.clone()));
-    if !registered || archived {
+    if archived {
         panic_with_error!(env, SettlementError::PaymentOrphaned);
     }
 }
